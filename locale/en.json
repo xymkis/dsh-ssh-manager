@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "SSH Servers",
+    "description": "Manage Linux SSH server connections and let the agent run remote commands over SSH."
+  }
+}

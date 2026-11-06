@@ -1,0 +1,9 @@
+# dsh-ssh-manager bundle patch
+#
+# Mounts the host half as the loader row `ssh-manager`. The browser half ships
+# through package.json `exports['./client']` and the `dsh.client` declaration;
+# its Settings page is registered on the client side.
+- insert:
+    - id: ssh-manager
+      name: '@local/dsh-ssh-manager'
+      config: {}
