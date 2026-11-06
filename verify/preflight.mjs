@@ -207,6 +207,7 @@ check('ssh_exec render is text', Array.isArray(execContent) && execContent[0]?.t
 
 const promptText = captured.sections[0].text({})
 check('prompt lists both servers', promptText.includes('preflight-web-01') && promptText.includes('preflight-db-01'), promptText)
+check('prompt teaches the /host reference form', promptText.includes('reference: /10.0.0.11') && promptText.includes('`/<host>`'), promptText)
 check('prompt hides credentials', !promptText.includes(secretPassword) && !promptText.includes('PREFLIGHTKEYMATERIAL'))
 
 /* ── persistence ──────────────────────────────────────────────────────── */
@@ -290,6 +291,14 @@ const clientModule = moduleDefinition?.factory(moduleName => {
 check('client exports inject + apply', typeof clientModule?.apply === 'function' && JSON.stringify(clientModule.inject) === JSON.stringify(['slots', 'locale']))
 clientModule.apply(clientCtx)
 check('client registers locale dictionaries', locale.registered.length === 1 && locale.registered[0].namespace === 'sshManager' && typeof locale.registered[0].dictionaries.zh === 'object' && typeof locale.registered[0].dictionaries.en === 'object')
+const zhDict = locale.registered[0]?.dictionaries?.zh ?? {}
+const enDict = locale.registered[0]?.dictionaries?.en ?? {}
+check('locale dictionaries keep identical key sets', JSON.stringify(Object.keys(zhDict).sort()) === JSON.stringify(Object.keys(enDict).sort()))
+const requiredKeys = [
+  'files', 'sftpTitle', 'sftpUpload', 'sftpDownload', 'sftpUploading', 'sftpDownloading',
+  'sftpUploadDone', 'sftpDownloadDone', 'sftpNeedPath', 'sftpNeedFile', 'credentialNote',
+]
+check('locale has every SFTP key', requiredKeys.every(key => typeof zhDict[key] === 'string' && typeof enDict[key] === 'string'), JSON.stringify(requiredKeys.filter(key => typeof zhDict[key] !== 'string' || typeof enDict[key] !== 'string')))
 check('client installs one stylesheet', styleElements.length === 1 && styleElements[0].id === 'dsh-ssh-manager-styles', String(styleElements.length))
 check('client injects settings.section', slots.injections[0] === 'settings.section')
 const registration = slots.registered[0]?.options
@@ -297,18 +306,91 @@ check('settings section options', registration?.name === 'settings.section' && r
 check('settings section label is localized', registration?.label?.() === 'sshManager.nav', String(registration?.label?.()))
 check('component is a renderer', typeof slots.registered[0]?.component === 'function')
 
-/* ── composer @ source ─────────────────────────────────────────────────── */
+/* ── composer mention sources ──────────────────────────────────────────── */
 
-const sshSource = triggers.sources[0]
-check('@ source registered', sshSource !== undefined && sshSource.trigger === '@' && sshSource.name === 'SSH')
-const allMentionItems = await sshSource.candidates({ sessionId: 'session' }, { query: '', quoted: false })
-check('@ candidates list every server', allMentionItems.length === 2 && allMentionItems[0].name === 'preflight-web-01', JSON.stringify(allMentionItems))
-const filteredMentions = await sshSource.candidates({ sessionId: 'session' }, { query: '10.0.0.12', quoted: false })
-check('@ candidates filter by host', filteredMentions.length === 1 && filteredMentions[0].name === 'preflight-db-01', JSON.stringify(filteredMentions))
-check('@ candidate describes the target', String(filteredMentions[0]?.description).includes('root@10.0.0.12:22'), String(filteredMentions[0]?.description))
-const mentionPick = sshSource.onPick({ candidate: filteredMentions[0] })
-check('@ pick inserts @name', mentionPick !== undefined && mentionPick.text === '@preflight-db-01', JSON.stringify(mentionPick))
-check('@ source never exposes credentials', !JSON.stringify(allMentionItems).includes('password') && !JSON.stringify(allMentionItems).includes('privateKey'))
+const atSource = triggers.sources.find(source => source.trigger === '@')
+const slashSource = triggers.sources.find(source => source.trigger === '/')
+check('@ mention source registered', atSource !== undefined && atSource.name === 'SSH')
+check('/ mention source registered', slashSource !== undefined && slashSource.name === 'SSH')
+const allMentionItems = await atSource.candidates({ sessionId: 'session' }, { query: '', quoted: false })
+check('mention candidates list every server by IP', allMentionItems.length === 2 && allMentionItems[0].name === '10.0.0.11', JSON.stringify(allMentionItems))
+const filteredMentions = await atSource.candidates({ sessionId: 'session' }, { query: '10.0.0.12', quoted: false })
+check('mention candidates filter by host', filteredMentions.length === 1 && filteredMentions[0].name === '10.0.0.12', JSON.stringify(filteredMentions))
+check('mention candidate describes the target', String(filteredMentions[0]?.description).includes('root@22') && String(filteredMentions[0]?.description).includes('preflight-db-01'), String(filteredMentions[0]?.description))
+const mentionPick = atSource.onPick({ candidate: filteredMentions[0] })
+check('mention pick inserts /host', mentionPick !== undefined && mentionPick.text === '/10.0.0.12', JSON.stringify(mentionPick))
+const slashPick = slashSource.onPick({ candidate: filteredMentions[0] })
+check('/ pick inserts /host', slashPick !== undefined && slashPick.text === '/10.0.0.12', JSON.stringify(slashPick))
+check('mention source never exposes credentials', !JSON.stringify(allMentionItems).includes('password') && !JSON.stringify(allMentionItems).includes('privateKey'))
+
+/* ── SFTP API ─────────────────────────────────────────────────────────── */
+
+const { createStore: createSftpStore } = await import(pathToFileURL(path.join(pluginDir, 'host', 'store.js')).href)
+const { registerApiRoutes } = await import(pathToFileURL(path.join(pluginDir, 'host', 'api.js')).href)
+
+const sftpStore = createSftpStore({ dir: path.join(dataRoot, 'sftp-store') })
+sftpStore.load()
+const sftpServer = await sftpStore.create({
+  name: 'sftp-target', host: '127.0.0.1', port: 1, username: 'ops', authType: 'password', password: secretPassword,
+})
+check('store resolves a server by host/IP', sftpStore.find('127.0.0.1')?.name === 'sftp-target')
+const received = { uploads: [], downloads: [] }
+let sftpRoute = null
+const sftpCtx = {
+  logger: { warn: () => {} },
+  webServer: { register(route) { sftpRoute = route; return () => {} } },
+  connection: { requestRejection: () => undefined },
+}
+registerApiRoutes(sftpCtx, {
+  store: sftpStore,
+  ssh: { probe: async () => ({ latencyMs: 1, output: 'ok' }) },
+  sftp: {
+    async upload(_record, remotePath, data, options) {
+      received.uploads.push({ remotePath, bytes: data.length, fileName: options?.fileName })
+      const finalPath = remotePath.endsWith('/') ? remotePath + (options?.fileName ?? '') : remotePath
+      return { remotePath: finalPath, bytes: data.length }
+    },
+    async download(_record, remotePath) {
+      received.downloads.push({ remotePath })
+      return { remotePath, fileName: 'hello.txt', bytes: 5, data: Buffer.from('hello').toString('base64') }
+    },
+  },
+})
+
+async function sftpCall(method, body) {
+  const response = fakeResponse()
+  await sftpRoute.handler(fakeRequest(`/ssh-manager/api/${method}`, body), response)
+  return { status: response.status, payload: JSON.parse(response.body), raw: response.body }
+}
+
+const uploaded = await sftpCall('sftp-upload', {
+  id: sftpServer.id, remotePath: '/tmp/', fileName: 'demo.txt', data: Buffer.from('hello').toString('base64'),
+})
+check('sftp-upload ok', uploaded.status === 200 && uploaded.payload.ok === true
+  && uploaded.payload.data.remotePath === '/tmp/demo.txt' && uploaded.payload.data.bytes === 5, uploaded.raw)
+check('sftp-upload reaches the transfer client', received.uploads.length === 1 && received.uploads[0].bytes === 5, JSON.stringify(received.uploads))
+
+const uploadedPlain = await sftpCall('sftp-upload', {
+  id: sftpServer.id, remotePath: '/tmp/demo.txt', data: Buffer.from('x').toString('base64'),
+})
+check('sftp-upload keeps an explicit path verbatim', uploadedPlain.payload?.data?.remotePath === '/tmp/demo.txt', uploadedPlain.raw)
+
+const uploadedMissing = await sftpCall('sftp-upload', { id: sftpServer.id, remotePath: '/tmp/' })
+check('sftp-upload without data is a 400', uploadedMissing.status === 400 && uploadedMissing.payload.error.code === 'invalid-input')
+
+const bigData = Buffer.alloc(Math.round(1.2 * 1024 * 1024), 7).toString('base64')
+const bigUpload = await sftpCall('sftp-upload', { id: sftpServer.id, remotePath: '/tmp/big.bin', data: bigData })
+check('sftp-upload accepts bodies above the ordinary 1 MiB limit', bigUpload.status === 200
+  && bigUpload.payload.data.bytes === Math.round(1.2 * 1024 * 1024), String(bigUpload.raw).slice(0, 120))
+const bigList = await sftpCall('list', { junk: 'x'.repeat(Math.round(1.2 * 1024 * 1024)) })
+check('ordinary methods keep the 1 MiB body limit', bigList.status === 400 && bigList.payload.error.code === 'bad-request')
+
+const downloaded = await sftpCall('sftp-download', { id: sftpServer.id, remotePath: '/root/hello.txt' })
+check('sftp-download returns a base64 payload', downloaded.status === 200
+  && downloaded.payload.data.fileName === 'hello.txt' && downloaded.payload.data.data === 'aGVsbG8=', downloaded.raw)
+check('SFTP responses never contain credentials', !uploaded.raw.includes(secretPassword) && !downloaded.raw.includes(secretPassword))
+const downloadMissing = await sftpCall('sftp-download', { id: sftpServer.id })
+check('sftp-download without a path is a 400', downloadMissing.status === 400 && downloadMissing.payload.error.code === 'invalid-input')
 
 /* ── teardown ─────────────────────────────────────────────────────────── */
 

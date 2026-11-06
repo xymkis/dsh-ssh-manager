@@ -80,19 +80,20 @@ window.__ModuleLoader__.load({
     }
 
     /**
-     * The composer `@` completion source: typing `@` lists the configured SSH
-     * servers (filtered by name / host / user / port) and picking one inserts
-     * `@<name>` as plain text. The inserted text is exactly the server name the
-     * system prompt and the `ssh_exec` tool use, so the agent can address the
-     * server directly without any custom user-text node.
+     * The composer completion source for both `@` and `/`: it lists the
+     * configured SSH servers (filtered by name / host / user / port) and
+     * picking one inserts `/<host>` — the slash+IP reference form the system
+     * prompt teaches the agent to match against the listed host. The candidate
+     * row shows the IP as its primary text with the display name as the
+     * description, so what you pick is what the agent will resolve.
      *
      * Registered through the optional `inputTriggers` client service; failures
      * to load the list (offline, auth) yield an empty group instead of an error
      * banner inside the composer.
      */
-    function createMentionSource(t) {
+    function createMentionSource(t, trigger) {
       return {
-        trigger: '@',
+        trigger,
         name: 'SSH',
         order: 50,
         async candidates(_session, request) {
@@ -115,19 +116,19 @@ window.__ModuleLoader__.load({
               return fields.some(field => typeof field === 'string' && field.toLowerCase().includes(needle))
             })
             .map(server => ({
-              name: String(server.name),
-              description: `${server.username}@${server.host}:${server.port} · `
-                + (server.authType === 'key' ? t('authKey') : t('authPassword')),
-              value: String(server.name),
+              name: String(server.host),
+              description: `${server.username}@${server.port} · ${server.name}`
+                + (server.authType === 'key' ? ` · ${t('authKey')}` : ''),
+              value: String(server.host),
             }))
         },
         onPick({ candidate }) {
           const raw = candidate !== null && candidate !== undefined && typeof candidate.value === 'string'
             ? candidate.value
             : candidate !== null && candidate !== undefined && typeof candidate.name === 'string' ? candidate.name : ''
-          const name = raw.replace(/\s+/g, ' ').trim()
-          if (name === '') return undefined
-          return { text: `@${name}` }
+          const host = raw.replace(/\s+/g, ' ').trim()
+          if (host === '') return undefined
+          return { text: `/${host}` }
         },
       }
     }
@@ -199,7 +200,7 @@ window.__ModuleLoader__.load({
 
     /** Chinese copy (authoritative: every `en` key has a `zh` entry here). */
     const zh = {
-      nav: 'SSH 服务器', intro: '管理 Linux SSH 服务器连接。配置好之后，智能体可以通过 SSH 在远端执行命令；这里可以随时测试连通性。在对话输入框输入 @ 可快速引用已添加的服务器。',
+      nav: 'SSH 服务器', intro: '管理 Linux SSH 服务器连接。配置好之后，智能体可以通过 SSH 在远端执行命令；这里可以随时测试连通性、上传下载文件。在对话输入框输入 @ 或 / 可快速引用服务器（插入 /服务器IP）。',
       add: '添加服务器', count: '台服务器', loading: '正在加载服务器…', retry: '重新加载',
       emptyTitle: '还没有 SSH 服务器',
       emptyDesc: '添加一台 Linux 服务器后，智能体就能通过 ssh_exec 在远端执行命令。密码和私钥只保存在本机，列表里只显示是否已配置凭据。',
@@ -219,11 +220,19 @@ window.__ModuleLoader__.load({
       validationPassword: '请填写密码', validationKey: '请粘贴私钥内容',
       serverCountOne: '共 1 台服务器', serverCountMany: '共 {count} 台服务器',
       requestFailed: '请求失败，请稍后重试', latency: '延迟 {ms} ms', remoteInfo: '远端信息',
+      credentialNote: '凭据只保存在本机，不会出现在对话或工具参数中。',
+      files: '文件传输', sftpTitle: 'SFTP 文件传输',
+      sftpUpload: '上传', sftpDownload: '下载',
+      sftpRemotePath: '远程路径', sftpRemotePlaceholder: '/tmp/ 或 /root/文件名',
+      sftpChooseFile: '选择本地文件', sftpNoFile: '未选择文件',
+      sftpUploading: '上传中…', sftpDownloading: '下载中…',
+      sftpUploadDone: '已上传到 {path}（{bytes}）', sftpDownloadDone: '已下载 {path}（{bytes}）',
+      sftpNeedPath: '请填写远程路径', sftpNeedFile: '请先选择要上传的本地文件',
     }
 
     /** English dictionary: mirrors `zh` key for key. */
     const en = {
-      nav: 'SSH Servers', intro: 'Manage Linux SSH server connections. Once configured, the agent can run commands over SSH; test connectivity here at any time. Type @ in the composer to reference a saved server.',
+      nav: 'SSH Servers', intro: 'Manage Linux SSH server connections. Once configured, the agent can run commands over SSH; test connectivity and transfer files here at any time. Type @ or / in the composer to reference a saved server (inserts /<host>).',
       add: 'Add server', count: 'servers', loading: 'Loading servers…', retry: 'Retry',
       emptyTitle: 'No SSH servers yet',
       emptyDesc: 'Add a Linux server and the agent can run commands on it with ssh_exec. Passwords and private keys stay on this machine; the list only shows whether a credential is saved.',
@@ -243,6 +252,14 @@ window.__ModuleLoader__.load({
       validationPassword: 'Enter a password', validationKey: 'Paste the private key',
       serverCountOne: '1 server', serverCountMany: '{count} servers',
       requestFailed: 'Request failed. Try again.', latency: 'Latency {ms} ms', remoteInfo: 'Remote info',
+      credentialNote: 'Credentials stay on this machine and never appear in the conversation or tool arguments.',
+      files: 'Files', sftpTitle: 'SFTP file transfer',
+      sftpUpload: 'Upload', sftpDownload: 'Download',
+      sftpRemotePath: 'Remote path', sftpRemotePlaceholder: '/tmp/ or /root/file',
+      sftpChooseFile: 'Choose local file', sftpNoFile: 'No file selected',
+      sftpUploading: 'Uploading…', sftpDownloading: 'Downloading…',
+      sftpUploadDone: 'Uploaded to {path} ({bytes})', sftpDownloadDone: 'Downloaded {path} ({bytes})',
+      sftpNeedPath: 'Enter a remote path', sftpNeedFile: 'Choose a local file first',
     }
 
     /*
@@ -292,9 +309,10 @@ window.__ModuleLoader__.load({
 .dsh-ssh-empty-desc { margin: 0; max-width: 560px; font-size: 12px; line-height: 18px; color: var(--ssh-fg2); }
 .dsh-ssh-list { display: flex; flex-direction: column; gap: 10px; }
 .dsh-ssh-card {
-  display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; padding: 14px 16px;
+  display: flex; flex-direction: column; padding: 14px 16px;
   border: 1px solid var(--ssh-b2); border-radius: 16px; background: var(--ssh-bg3); box-sizing: border-box;
 }
+.dsh-ssh-card-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; width: 100%; }
 .dsh-ssh-card-main { display: flex; flex: 1 1 auto; flex-direction: column; gap: 6px; min-width: 0; }
 .dsh-ssh-card-title-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; min-width: 0; }
 .dsh-ssh-card-name {
@@ -339,44 +357,53 @@ window.__ModuleLoader__.load({
   margin: 0; padding: 0; max-height: 120px; overflow: auto; font-family: var(--ssh-mono); font-size: 11px;
   line-height: 16px; color: var(--ssh-fg2); white-space: pre-wrap; overflow-wrap: anywhere; scrollbar-width: thin;
 }
-.dsh-ssh-backdrop {
-  position: fixed; inset: 0; z-index: 9999; display: flex; align-items: center; justify-content: center;
-  padding: 24px; box-sizing: border-box;
-  background: rgba(0, 0, 0, 0.38); backdrop-filter: blur(2px);
-}
-.dsh-ssh-dialog {
-  display: flex; flex-direction: column;
-  width: min(560px, 100%); max-height: min(74vh, 640px);
+.dsh-ssh-editor {
+  display: flex; flex-direction: column; width: 100%; box-sizing: border-box;
   border: 1px solid var(--ssh-b2); border-radius: 14px; background: var(--ssh-bg3);
-  box-sizing: border-box; overscroll-behavior: contain;
-  box-shadow: var(--dsw-elevation-prominent, 0 18px 48px rgba(0, 0, 0, 0.28));
-  animation: dsh-ssh-dialog-in 0.14s ease-out;
+  animation: dsh-ssh-editor-in 0.14s ease-out; overflow: hidden;
 }
-@keyframes dsh-ssh-dialog-in {
-  from { opacity: 0; transform: translateY(6px) scale(0.99); }
+@keyframes dsh-ssh-editor-in {
+  from { opacity: 0; transform: translateY(-4px); }
   to { opacity: 1; transform: none; }
 }
-.dsh-ssh-dialog-head {
+.dsh-ssh-editor-head {
   display: flex; align-items: flex-start; justify-content: space-between; gap: 12px;
-  padding: 16px 18px 10px;
+  padding: 14px 18px 8px;
 }
-.dsh-ssh-dialog-head-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.dsh-ssh-dialog-title { margin: 0; font-size: 14px; line-height: 22px; font-weight: 600; color: var(--ssh-fg); }
-.dsh-ssh-dialog-sub {
+.dsh-ssh-editor-head-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.dsh-ssh-editor-title { margin: 0; font-size: 14px; line-height: 22px; font-weight: 600; color: var(--ssh-fg); }
+.dsh-ssh-editor-sub {
   font-size: 11px; line-height: 16px; color: var(--ssh-fg3);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-.dsh-ssh-dialog-body {
-  display: flex; flex: 1 1 auto; flex-direction: column; gap: 12px; padding: 4px 18px 14px;
-  overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin;
-  scrollbar-color: var(--dsw-alias-scrollbar-bg-l2, transparent) transparent;
-}
-.dsh-ssh-dialog-foot {
+.dsh-ssh-editor-body { display: flex; flex-direction: column; gap: 12px; padding: 4px 18px 14px; }
+.dsh-ssh-editor-foot {
   display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap;
   padding: 12px 18px; border-top: 1px solid var(--ssh-b1); background: var(--ssh-bg2);
-  border-radius: 0 0 13px 13px;
 }
-.dsh-ssh-dialog-foot-right { display: flex; align-items: center; justify-content: flex-end; gap: 8px; margin-left: auto; flex-wrap: wrap; }
+.dsh-ssh-editor-foot-right { display: flex; align-items: center; justify-content: flex-end; gap: 8px; margin-left: auto; flex-wrap: wrap; }
+/* Fixed-height credential slot: switching 密码 / 私钥 keeps the page height
+   stable instead of jumping between a short input and a tall key textarea. */
+.dsh-ssh-credential {
+  display: flex; flex-direction: column; gap: 12px;
+  height: 196px; box-sizing: border-box; overflow-y: auto; padding-right: 2px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--dsw-alias-scrollbar-bg-l2, transparent) transparent;
+}
+.dsh-ssh-credential-note { margin: 0; font-size: 11px; line-height: 16px; color: var(--ssh-fg3); }
+.dsh-ssh-sftp {
+  display: flex; flex-direction: column; gap: 10px; width: 100%;
+  margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--ssh-b1);
+}
+.dsh-ssh-sftp-title { font-size: 12px; line-height: 18px; font-weight: 600; color: var(--ssh-fg); }
+.dsh-ssh-sftp-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.dsh-ssh-sftp-label { flex: none; min-width: 58px; font-size: 12px; line-height: 18px; color: var(--ssh-fg2); }
+.dsh-ssh-sftp-path { flex: 1 1 200px; min-width: 0; }
+.dsh-ssh-sftp-file { min-width: 0; font-size: 12px; line-height: 18px; color: var(--ssh-fg3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dsh-ssh-sftp-status { font-size: 12px; line-height: 18px; color: var(--ssh-fg2); overflow-wrap: anywhere; }
+.dsh-ssh-sftp-status-err { color: var(--ssh-err); }
+.dsh-ssh-sftp-status-ok { color: var(--ssh-ok); }
+.dsh-ssh-file-input { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
 .dsh-ssh-field { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
 .dsh-ssh-field-row { display: grid; grid-template-columns: minmax(0, 1fr) 118px; gap: 12px; }
 .dsh-ssh-legend { padding: 0; }
@@ -427,19 +454,19 @@ window.__ModuleLoader__.load({
   color: var(--ssh-err); font-size: 12px; line-height: 18px; overflow-wrap: anywhere;
 }
 @media (max-width: 640px) {
-  .dsh-ssh-card { flex-direction: column; } .dsh-ssh-card-actions { justify-content: flex-start; width: 100%; }
+  .dsh-ssh-card-top { flex-direction: column; }
+  .dsh-ssh-card-actions { justify-content: flex-start; width: 100%; }
   .dsh-ssh-confirm { align-items: flex-start; } .dsh-ssh-confirm-desc { max-width: none; text-align: left; }
-  .dsh-ssh-backdrop { padding: 12px; }
-  .dsh-ssh-dialog { max-height: min(86vh, 720px); }
-  .dsh-ssh-dialog-head, .dsh-ssh-dialog-body, .dsh-ssh-dialog-foot { padding-left: 16px; padding-right: 16px; }
+  .dsh-ssh-editor-head, .dsh-ssh-editor-body, .dsh-ssh-editor-foot { padding-left: 16px; padding-right: 16px; }
 }
 @media (max-width: 520px) {
   .dsh-ssh-field-row { grid-template-columns: 1fr; }
-  .dsh-ssh-dialog-foot-right { width: 100%; justify-content: flex-end; }
+  .dsh-ssh-editor-foot-right { width: 100%; justify-content: flex-end; }
+  .dsh-ssh-sftp-label { min-width: 100%; }
 }
 @media (prefers-reduced-motion: reduce) {
   .dsh-ssh-btn, .dsh-ssh-segment, .dsh-ssh-input { transition: none; }
-  .dsh-ssh-dialog { animation: none; }
+  .dsh-ssh-editor { animation: none; }
 }
 `
 
@@ -530,6 +557,161 @@ window.__ModuleLoader__.load({
           Btn({ tone: 'secondary', disabled: deleting, onClick: onCancel }, t('cancel'))))
     }
 
+    /** Human-readable byte size for transfer status lines. */
+    function bytesText(bytes) {
+      if (typeof bytes !== 'number' || !Number.isFinite(bytes) || bytes < 0) return '0 B'
+      if (bytes < 1024) return `${bytes} B`
+      if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KiB`
+      return `${(bytes / (1024 * 1024)).toFixed(1)} MiB`
+    }
+
+    /** Encode an ArrayBuffer as base64 (chunked so large files do not overflow the call stack). */
+    function arrayBufferToBase64(buffer) {
+      const bytes = new Uint8Array(buffer)
+      const chunk = 0x8000
+      let binary = ''
+      for (let offset = 0; offset < bytes.length; offset += chunk) {
+        binary += String.fromCharCode.apply(null, bytes.subarray(offset, offset + chunk))
+      }
+      return btoa(binary)
+    }
+
+    /** Decode a base64 payload into a Blob for a browser download. */
+    function base64ToBlob(base64) {
+      const binary = atob(base64)
+      const bytes = new Uint8Array(binary.length)
+      for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index)
+      return new Blob([bytes], { type: 'application/octet-stream' })
+    }
+
+    /**
+     * Inline SFTP panel under one server card: upload a local file to a remote
+     * path, or download a remote file to the browser. The panel is expanded in
+     * place (no dialog), so the settings column stays the only scroll surface.
+     */
+    function SftpPanel(props) {
+      const { t, server } = props
+      const tRef = useRef(t); tRef.current = t
+      const aliveRef = useRef(true)
+      const fileInputRef = useRef(null)
+      const uploadRef = useRef(false)
+      const downloadRef = useRef(false)
+      const [file, setFile] = useState(null)
+      const [remotePath, setRemotePath] = useState('/tmp/')
+      const [downloadPath, setDownloadPath] = useState('')
+      const [busy, setBusy] = useState(null)
+      const [status, setStatus] = useState(null)
+
+      useEffect(() => {
+        aliveRef.current = true
+        return () => { aliveRef.current = false }
+      }, [])
+
+      const pickFile = event => {
+        const picked = event.currentTarget.files !== null && event.currentTarget.files !== undefined
+          ? event.currentTarget.files[0] : undefined
+        setFile(picked === undefined ? null : picked)
+        setStatus(null)
+      }
+
+      const upload = () => {
+        if (uploadRef.current) return
+        if (file === null) { setStatus({ kind: 'err', text: t('sftpNeedFile') }); return }
+        const target = remotePath.trim()
+        if (target === '') { setStatus({ kind: 'err', text: t('sftpNeedPath') }); return }
+        uploadRef.current = true
+        setBusy('upload')
+        setStatus(null)
+        file.arrayBuffer().then(buffer => call('sftp-upload', {
+          id: server.id, remotePath: target, fileName: file.name, data: arrayBufferToBase64(buffer),
+        })).then(data => {
+          if (!aliveRef.current) return
+          uploadRef.current = false
+          setBusy(null)
+          setStatus({
+            kind: 'ok',
+            text: fmt(tRef.current, 'sftpUploadDone', { path: data.remotePath, bytes: bytesText(data.bytes) }),
+          })
+        }).catch(caught => {
+          if (!aliveRef.current) return
+          uploadRef.current = false
+          setBusy(null)
+          setStatus({ kind: 'err', text: errorText(caught, tRef.current) })
+        })
+      }
+
+      const download = () => {
+        if (downloadRef.current) return
+        const target = downloadPath.trim()
+        if (target === '') { setStatus({ kind: 'err', text: t('sftpNeedPath') }); return }
+        downloadRef.current = true
+        setBusy('download')
+        setStatus(null)
+        call('sftp-download', { id: server.id, remotePath: target }).then(data => {
+          if (!aliveRef.current) return
+          downloadRef.current = false
+          setBusy(null)
+          const url = URL.createObjectURL(base64ToBlob(data.data))
+          const link = document.createElement('a')
+          link.href = url
+          link.download = typeof data.fileName === 'string' && data.fileName !== '' ? data.fileName : 'download.bin'
+          document.body.appendChild(link)
+          link.click()
+          link.remove()
+          window.setTimeout(() => { URL.revokeObjectURL(url) }, 1000)
+          setStatus({
+            kind: 'ok',
+            text: fmt(tRef.current, 'sftpDownloadDone', { path: data.remotePath, bytes: bytesText(data.bytes) }),
+          })
+        }).catch(caught => {
+          if (!aliveRef.current) return
+          downloadRef.current = false
+          setBusy(null)
+          setStatus({ kind: 'err', text: errorText(caught, tRef.current) })
+        })
+      }
+
+      const fileInputId = 'dsh-ssh-file-' + String(server.id)
+      return h('div', { className: 'dsh-ssh-sftp' },
+        h('div', { className: 'dsh-ssh-sftp-title' }, t('sftpTitle')),
+        h('div', { className: 'dsh-ssh-sftp-row' },
+          h('span', { className: 'dsh-ssh-sftp-label' }, t('sftpUpload')),
+          h('input', {
+            id: fileInputId, ref: fileInputRef, type: 'file', className: 'dsh-ssh-file-input',
+            onChange: pickFile, 'aria-hidden': 'true', tabIndex: -1,
+          }),
+          Btn({
+            tone: 'secondary',
+            onClick: () => {
+              const input = fileInputRef.current
+              if (input !== null && typeof input.click === 'function') input.click()
+            },
+          }, t('sftpChooseFile')),
+          h('span', { className: 'dsh-ssh-sftp-file', title: file === null ? '' : file.name },
+            file === null ? t('sftpNoFile') : file.name),
+          h('input', {
+            type: 'text', className: 'dsh-ssh-input dsh-ssh-sftp-path', value: remotePath,
+            placeholder: t('sftpRemotePlaceholder'), 'aria-label': t('sftpRemotePath'),
+            onChange: event => { setRemotePath(event.currentTarget.value) },
+          }),
+          Btn({ tone: 'primary', disabled: busy !== null, onClick: upload },
+            busy === 'upload' ? t('sftpUploading') : t('sftpUpload'))),
+        h('div', { className: 'dsh-ssh-sftp-row' },
+          h('span', { className: 'dsh-ssh-sftp-label' }, t('sftpDownload')),
+          h('input', {
+            type: 'text', className: 'dsh-ssh-input dsh-ssh-sftp-path', value: downloadPath,
+            placeholder: t('sftpRemotePlaceholder'), 'aria-label': t('sftpRemotePath'),
+            onChange: event => { setDownloadPath(event.currentTarget.value) },
+          }),
+          Btn({ tone: 'secondary', disabled: busy !== null, onClick: download },
+            busy === 'download' ? t('sftpDownloading') : t('sftpDownload'))),
+        status === null ? null : h('div', {
+          className: 'dsh-ssh-sftp-status ' + (status.kind === 'ok' ? 'dsh-ssh-sftp-status-ok' : 'dsh-ssh-sftp-status-err'),
+          role: 'status', 'aria-live': 'polite',
+        }, status.text),
+      )
+    }
+
     /** One server card: identity + badges + note + per-row test result + actions. */
     function ServerCard(props) {
       const { t, server, onEdit, onRemoved } = props
@@ -542,6 +724,7 @@ window.__ModuleLoader__.load({
       const [confirming, setConfirming] = useState(false)
       const [deleting, setDeleting] = useState(false)
       const [deleteError, setDeleteError] = useState('')
+      const [sftpOpen, setSftpOpen] = useState(false)
 
       useEffect(() => {
         aliveRef.current = true
@@ -598,46 +781,55 @@ window.__ModuleLoader__.load({
       }
 
       const hasSecret = server.hasPassword === true || server.hasKey === true
+      const actionButtons = confirming
+        ? h(ConfirmDelete, {
+          t, deleting, error: deleteError, onConfirm: confirmDelete,
+          onCancel: () => { setConfirming(false); setDeleteError('') },
+        })
+        : [
+          Btn({
+            key: 'test', tone: 'secondary', disabled: test !== null && test.status === 'running', onClick: runTest,
+          }, test !== null && test.status === 'running' ? t('testing') : t('test')),
+          Btn({
+            key: 'files', tone: 'secondary', onClick: () => { setSftpOpen(open => !open) },
+            'aria-expanded': sftpOpen,
+          }, t('files')),
+          Btn({ key: 'edit', tone: 'secondary', onClick: onEdit }, t('edit')),
+          Btn({ key: 'delete', tone: 'danger', onClick: () => { setConfirming(true) } }, t('delete')),
+        ]
+
       return h('div', { className: 'dsh-ssh-card' },
-        h('div', { className: 'dsh-ssh-card-main' },
-          h('div', { className: 'dsh-ssh-card-title-row' },
-            h('span', { className: 'dsh-ssh-card-name', title: String(server.name) }, String(server.name)),
-            h('span', { className: 'dsh-ssh-badge' }, server.authType === 'key' ? t('authKey') : t('authPassword')),
-            h('span', { className: 'dsh-ssh-badge' + (hasSecret ? '' : ' dsh-ssh-badge-warn') },
-              hasSecret ? t('hasSecret') : t('noSecret')),
+        h('div', { className: 'dsh-ssh-card-top' },
+          h('div', { className: 'dsh-ssh-card-main' },
+            h('div', { className: 'dsh-ssh-card-title-row' },
+              h('span', { className: 'dsh-ssh-card-name', title: String(server.name) }, String(server.name)),
+              h('span', { className: 'dsh-ssh-badge' }, server.authType === 'key' ? t('authKey') : t('authPassword')),
+              h('span', { className: 'dsh-ssh-badge' + (hasSecret ? '' : ' dsh-ssh-badge-warn') },
+                hasSecret ? t('hasSecret') : t('noSecret')),
+            ),
+            h('span', { className: 'dsh-ssh-card-user', title: t('colUser') },
+              String(server.username) + '@' + String(server.host) + ':' + String(server.port)),
+            server.note !== undefined && server.note !== null && server.note !== ''
+              ? h('div', { className: 'dsh-ssh-card-note' }, String(server.note)) : null,
+            h(TestStatus, { t, state: test }),
           ),
-          h('span', { className: 'dsh-ssh-card-user', title: t('colUser') },
-            String(server.username) + '@' + String(server.host) + ':' + String(server.port)),
-          server.note !== undefined && server.note !== null && server.note !== ''
-            ? h('div', { className: 'dsh-ssh-card-note' }, String(server.note)) : null,
-          h(TestStatus, { t, state: test }),
+          h('div', { className: 'dsh-ssh-card-actions' }, actionButtons),
         ),
-        h('div', { className: 'dsh-ssh-card-actions' },
-          confirming
-            ? h(ConfirmDelete, {
-              t, deleting, error: deleteError, onConfirm: confirmDelete,
-              onCancel: () => { setConfirming(false); setDeleteError('') },
-            })
-            : [
-              Btn({
-                key: 'test', tone: 'secondary', disabled: test !== null && test.status === 'running', onClick: runTest,
-              }, test !== null && test.status === 'running' ? t('testing') : t('test')),
-              Btn({ key: 'edit', tone: 'secondary', onClick: onEdit }, t('edit')),
-              Btn({ key: 'delete', tone: 'danger', onClick: () => { setConfirming(true) } }, t('delete')),
-            ],
-        ),
+        sftpOpen ? h(SftpPanel, { t, server }) : null,
       )
     }
 
     /**
-     * Add / edit dialog: overlay, focus trap, scroll lock, inline validation,
-     * async save and test-draft. Secret fields start empty while editing.
+     * Add / edit inline panel (expanded under the toolbar, not a modal):
+     * inline validation, async save and test-draft. Secret fields start empty
+     * while editing; the credential slot keeps a fixed height so switching the
+     * authentication method never resizes the panel.
      */
     function EditorDialog(props) {
       const { t, server, onSaved, onClose } = props
       const tRef = useRef(t); tRef.current = t
       const isEdit = server !== null && server !== undefined
-      const titleId = 'dsh-ssh-dialog-title'
+      const titleId = 'dsh-ssh-editor-title'
       const [draft, setDraft] = useState(() => draftFrom(isEdit ? server : null))
       const [errors, setErrors] = useState({})
       const [formError, setFormError] = useState('')
@@ -652,46 +844,30 @@ window.__ModuleLoader__.load({
         return () => { aliveRef.current = false }
       }, [])
 
-      // Lock the page behind the overlay, restoring the exact previous state.
-      useEffect(() => {
-        const body = document.body
-        const previousOverflow = body.style.overflow
-        const previousPadding = body.style.paddingRight
-        const scrollbar = window.innerWidth - document.documentElement.clientWidth
-        body.style.overflow = 'hidden'
-        if (scrollbar > 0) body.style.paddingRight = scrollbar + 'px'
-        return () => { body.style.overflow = previousOverflow; body.style.paddingRight = previousPadding }
-      }, [])
-
-      // Escape closes (unless saving); Tab stays inside the dialog.
-      useEffect(() => {
-        const onKeyDown = event => {
-          if (event.key === 'Escape') { event.stopPropagation(); closeRef.current(); return }
-          if (event.key !== 'Tab') return
-          const panel = panelRef.current
-          if (panel === null) return
-          const nodes = panel.querySelectorAll('button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), [href], [tabindex]:not([tabindex="-1"])')
-          const items = []
-          for (let index = 0; index < nodes.length; index += 1) {
-            if (nodes[index].getClientRects().length > 0) items.push(nodes[index])
-          }
-          if (items.length === 0) return
-          const first = items[0]; const last = items[items.length - 1]; const active = document.activeElement
-          if (event.shiftKey) {
-            if (active === first || !panel.contains(active)) { event.preventDefault(); last.focus() }
-          } else if (active === last || !panel.contains(active)) { event.preventDefault(); first.focus() }
-        }
-        document.addEventListener('keydown', onKeyDown, true)
-        return () => document.removeEventListener('keydown', onKeyDown, true)
-      }, [])
-
-      // Focus the first field once the overlay is in the DOM.
+      // Inline editor: bring the panel into view and focus its first field.
       useEffect(() => {
         const timer = window.setTimeout(() => {
+          const panel = panelRef.current
+          if (panel !== null && typeof panel.scrollIntoView === 'function') {
+            panel.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+          }
           const field = firstFieldRef.current
           if (field !== null && typeof field.focus === 'function') field.focus()
         }, 0)
         return () => { window.clearTimeout(timer) }
+      }, [])
+
+      // Escape closes the inline editor only while focus is inside it (unless saving).
+      useEffect(() => {
+        const onKeyDown = event => {
+          if (event.key !== 'Escape') return
+          const panel = panelRef.current
+          if (panel === null || !panel.contains(document.activeElement)) return
+          event.stopPropagation()
+          closeRef.current()
+        }
+        document.addEventListener('keydown', onKeyDown, true)
+        return () => document.removeEventListener('keydown', onKeyDown, true)
       }, [])
 
       const requestClose = () => { if (!savingRef.current) onClose() }
@@ -834,22 +1010,24 @@ window.__ModuleLoader__.load({
             authOption('password', t('authPassword')), authOption('key', t('authKey')))),
       ]
 
+      const credentialFields = []
       if (draft.authType === 'password') {
-        fields.push(h(Field, {
+        credentialFields.push(h(Field, {
           key: 'password', id: 'dsh-ssh-field-password', label: t('fieldPassword'),
           hint: keepsPassword ? t('secretKeepHint') : t('secretRequiredHint'), error: errors.password,
         }, textInput('dsh-ssh-field-password', draft.password, v => { patch('password', v) }, {
           invalid: errors.password !== undefined, type: 'password', autoComplete: 'new-password',
           placeholder: keepsPassword ? t('secretKeepHint') : '',
         })))
+        credentialFields.push(h('p', { key: 'credential-note', className: 'dsh-ssh-credential-note' }, t('credentialNote')))
       } else {
-        fields.push(h(Field, {
+        credentialFields.push(h(Field, {
           key: 'privateKey', id: 'dsh-ssh-field-private-key', label: t('fieldPrivateKey'),
           hint: keepsKey ? t('secretKeepHint') : t('secretRequiredHint'), error: errors.key,
         }, textArea('dsh-ssh-field-private-key', draft.privateKey, v => { patch('privateKey', v) }, {
-          invalid: errors.key !== undefined, rows: 6, placeholder: '-----BEGIN OPENSSH PRIVATE KEY-----',
+          invalid: errors.key !== undefined, rows: 4, placeholder: '-----BEGIN OPENSSH PRIVATE KEY-----',
         })))
-        fields.push(h(Field, {
+        credentialFields.push(h(Field, {
           key: 'passphrase', id: 'dsh-ssh-field-passphrase', label: t('fieldPassphrase'),
           hint: keepsKey ? t('secretKeepHint') : undefined,
         }, textInput('dsh-ssh-field-passphrase', draft.passphrase, v => { patch('passphrase', v) }, {
@@ -857,44 +1035,44 @@ window.__ModuleLoader__.load({
         })))
       }
 
+      // The credential slot keeps one fixed height, so switching 密码 / 私钥
+      // never resizes the inline editor or shifts the rest of the page.
+      fields.push(h('div', { key: 'credential', className: 'dsh-ssh-credential' }, credentialFields))
+
       fields.push(h(Field, { key: 'note', id: 'dsh-ssh-field-note', label: t('fieldNote') },
         textArea('dsh-ssh-field-note', draft.note, v => { patch('note', v) }, {
           rows: 2, maxLength: 500, className: 'dsh-ssh-textarea-note',
         })))
 
-      // Deliberately no backdrop-click close: a partly filled connection form
-      // must not be discarded by a stray outside click. Close via the × button,
-      // the 取消 button, or Escape.
-      return h('div', { className: 'dsh-ssh-backdrop' },
-        h('div', {
-          className: 'dsh-ssh-dialog', role: 'dialog', 'aria-modal': 'true',
-          'aria-labelledby': titleId, ref: panelRef,
-        },
-          h('div', { className: 'dsh-ssh-dialog-head' },
-            h('div', { className: 'dsh-ssh-dialog-head-text' },
-              h('h2', { className: 'dsh-ssh-dialog-title', id: titleId },
-                isEdit ? t('formEditTitle') : t('formAddTitle')),
-              isEdit
-                ? h('span', { className: 'dsh-ssh-dialog-sub' },
-                  String(server.username) + '@' + String(server.host) + ':' + String(server.port))
-                : null),
-            Btn({
-              tone: 'ghost', className: 'dsh-ssh-icon-btn', onClick: requestClose,
-              disabled: saving, 'aria-label': t('close'), title: t('close'),
-            }, '×'),
-          ),
-          h('div', { className: 'dsh-ssh-dialog-body' },
-            fields,
-            h(TestStatus, { t, state: dialogTest }),
-            formError === '' ? null : h('div', { className: 'dsh-ssh-form-alert', role: 'alert' }, formError),
-          ),
-          h('div', { className: 'dsh-ssh-dialog-foot' },
-            Btn({ tone: 'secondary', onClick: runTest, disabled: testing || saving },
-              testing ? t('testing') : t('testInDialog')),
-            h('div', { className: 'dsh-ssh-dialog-foot-right' },
-              Btn({ tone: 'secondary', onClick: requestClose, disabled: saving }, t('cancel')),
-              Btn({ tone: 'primary', onClick: submit, disabled: saving }, saving ? t('saving') : t('save')),
-            ),
+      // Inline (not a modal) editor: it expands inside the settings column, so
+      // the surrounding page keeps its own scroll and no overlay covers it.
+      return h('div', {
+        className: 'dsh-ssh-editor', role: 'region', 'aria-labelledby': titleId, ref: panelRef,
+      },
+        h('div', { className: 'dsh-ssh-editor-head' },
+          h('div', { className: 'dsh-ssh-editor-head-text' },
+            h('h2', { className: 'dsh-ssh-editor-title', id: titleId },
+              isEdit ? t('formEditTitle') : t('formAddTitle')),
+            isEdit
+              ? h('span', { className: 'dsh-ssh-editor-sub' },
+                String(server.username) + '@' + String(server.host) + ':' + String(server.port))
+              : null),
+          Btn({
+            tone: 'ghost', className: 'dsh-ssh-icon-btn', onClick: requestClose,
+            disabled: saving, 'aria-label': t('close'), title: t('close'),
+          }, '×'),
+        ),
+        h('div', { className: 'dsh-ssh-editor-body' },
+          fields,
+          h(TestStatus, { t, state: dialogTest }),
+          formError === '' ? null : h('div', { className: 'dsh-ssh-form-alert', role: 'alert' }, formError),
+        ),
+        h('div', { className: 'dsh-ssh-editor-foot' },
+          Btn({ tone: 'secondary', onClick: runTest, disabled: testing || saving },
+            testing ? t('testing') : t('testInDialog')),
+          h('div', { className: 'dsh-ssh-editor-foot-right' },
+            Btn({ tone: 'secondary', onClick: requestClose, disabled: saving }, t('cancel')),
+            Btn({ tone: 'primary', onClick: submit, disabled: saving }, saving ? t('saving') : t('save')),
           ),
         ),
       )
@@ -959,6 +1137,13 @@ window.__ModuleLoader__.load({
           Btn({ tone: 'primary', onClick: () => { openEditor(null) } }, t('add'))),
       ]
 
+      // The editor expands inline directly under the toolbar (no modal overlay).
+      if (dialog !== null) {
+        children.push(h(EditorDialog, {
+          key: dialog.server === null ? 'add' : 'edit-' + String(dialog.server.id),
+          t, server: dialog.server, onSaved: handleSaved, onClose: () => { setDialog(null) },
+        }))
+      }
       if (status === 'loading') {
         children.push(h('div', { key: 'loading', className: 'dsh-ssh-loading', role: 'status' }, t('loading')))
       }
@@ -975,17 +1160,11 @@ window.__ModuleLoader__.load({
           key: server.id, t, server, onEdit: () => { openEditor(server) }, onRemoved: handleRemoved,
         }))))
       }
-      if (dialog !== null) {
-        children.push(h(EditorDialog, {
-          key: dialog.server === null ? 'add' : 'edit-' + String(dialog.server.id),
-          t, server: dialog.server, onSaved: handleSaved, onClose: () => { setDialog(null) },
-        }))
-      }
 
       return h('div', { className: 'dsh-ssh-section' }, children)
     }
 
-    /** Mount the locale dictionary, the stylesheet, the settings section and the `@` source. */
+    /** Mount the locale dictionary, the stylesheet, the settings section and the mention sources. */
     function apply(ctx) {
       ctx.effect(() => ctx.locale.register(LOCALE_NS, { zh, en }), 'dsh-ssh-manager: locale dictionary')
       ctx.effect(installStyles, 'dsh-ssh-manager: stylesheet')
@@ -1003,14 +1182,15 @@ window.__ModuleLoader__.load({
         label: () => translate('nav'),
       }, SectionSlot))
 
-      // Composer `@` completion: list the configured SSH servers so the user can
-      // reference one by the same name the prompt and tools use. The pipeline is
-      // an optional service: profiles without it keep the settings section.
+      // Composer completion for both `@` and `/`: list the configured SSH
+      // servers and insert `/<host>` so the chat text carries the same
+      // slash+IP reference the system prompt and ssh_exec understand.
       mountMentionSource(ctx, translate)
     }
 
     /**
-     * Register the `@` SSH source on the composer input-trigger pipeline.
+     * Register the SSH mention sources (`@` and `/`) on the composer
+     * input-trigger pipeline.
      *
      * `inputTriggers` is an optional client service owned by
      * `@deepseek-ai/dsh-client-ui-input-trigger`; it may already be mounted when
@@ -1022,22 +1202,25 @@ window.__ModuleLoader__.load({
      * @param t - the `sshManager` translate function.
      */
     function mountMentionSource(ctx, t) {
-      const registerOn = owner => owner.effect(
-        () => owner.inputTriggers.registerSource(createMentionSource(t)),
-        'dsh-ssh-manager: @ SSH source',
-      )
+      const triggers = ['@', '/']
+      const registerOn = owner => owner.effect(() => {
+        const disposers = triggers.map(trigger => owner.inputTriggers.registerSource(createMentionSource(t, trigger)))
+        return () => { for (const dispose of disposers) dispose() }
+      }, 'dsh-ssh-manager: SSH mention sources')
       try {
         const existing = typeof ctx.get === 'function' ? ctx.get('inputTriggers') : undefined
         if (existing !== undefined) {
-          ctx.effect(() => existing.registerSource(createMentionSource(t)),
-            'dsh-ssh-manager: @ SSH source')
+          ctx.effect(() => {
+            const disposers = triggers.map(trigger => existing.registerSource(createMentionSource(t, trigger)))
+            return () => { for (const dispose of disposers) dispose() }
+          }, 'dsh-ssh-manager: SSH mention sources')
           return
         }
         if (typeof ctx.inject === 'function') {
           ctx.inject(['inputTriggers'], registerOn)
         }
       } catch (error) {
-        console.error('[dsh-ssh-manager] @ SSH source registration failed:', error)
+        console.error('[dsh-ssh-manager] SSH mention source registration failed:', error)
       }
     }
 

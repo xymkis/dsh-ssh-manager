@@ -11,6 +11,7 @@
 
 import { registerApiRoutes } from './host/api.js'
 import { registerPromptSection } from './host/prompt.js'
+import { createSftpClient } from './host/sftp.js'
 import { createSshClient } from './host/ssh.js'
 import { createStore } from './host/store.js'
 import { registerTools } from './host/tools.js'
@@ -64,11 +65,12 @@ export function apply(ctx, _config) {
     warn(ctx, `failed to load the server data file: ${error && typeof error.message === 'string' ? error.message : String(error)}`)
   }
   const ssh = createSshClient()
+  const sftp = createSftpClient()
 
   ctx.effect(() => {
     /** @type {(() => void)[]} */
     const disposers = []
-    safelyRegister(ctx, 'HTTP API', () => registerApiRoutes(ctx, { store, ssh }), disposers)
+    safelyRegister(ctx, 'HTTP API', () => registerApiRoutes(ctx, { store, ssh, sftp }), disposers)
     safelyRegister(ctx, 'agent tools', () => registerTools(ctx, { store, ssh }), disposers)
     safelyRegister(ctx, 'system prompt section', () => registerPromptSection(ctx, { store }), disposers)
     return () => {

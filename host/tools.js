@@ -239,7 +239,7 @@ function renderExec(args, value) {
 function serversTool(store, ssh) {
   return {
     name: 'ssh_servers',
-    description: 'List the Linux SSH servers configured in DeepSeek Harness, or test connectivity to one of them. Use action="list" to discover the available server names before calling ssh_exec, and action="test" with a server id or name to verify that the saved credentials and the network path still work. Credentials are never returned; the test reports the remote uname/user output on success.',
+    description: 'List the Linux SSH servers configured in DeepSeek Harness, or test connectivity to one of them. Use action="list" to discover the available server names before calling ssh_exec, and action="test" with a server id, name, or host/IP to verify that the saved credentials and the network path still work. Credentials are never returned; the test reports the remote uname/user output on success.',
     parameters: {
       type: 'object',
       properties: {
@@ -250,7 +250,7 @@ function serversTool(store, ssh) {
         },
         server: {
           type: 'string',
-          description: 'Server id or name; required for action=test',
+          description: 'Server id, name, or host/IP; required for action=test',
         },
         timeout_seconds: {
           type: 'number',
@@ -360,7 +360,7 @@ function execTool(store, ssh) {
       properties: {
         server: {
           type: 'string',
-          description: 'Server id or name from ssh_servers',
+          description: 'Server id, name, or host/IP from ssh_servers (a chat reference like /192.168.10.81 also works)',
         },
         command: {
           type: 'string',

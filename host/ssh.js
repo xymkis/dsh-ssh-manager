@@ -96,7 +96,7 @@ function normalizeRecord(record) {
  * @param {unknown} error - thrown value from ssh2.
  * @returns {Error & { code: string }} the friendly error.
  */
-function mapSshError(error) {
+export function mapSshError(error) {
   const raw = error && typeof error.message === 'string' ? error.message : ''
   const code = error && typeof error.code === 'string' ? error.code : ''
   const level = error && typeof error.level === 'string' ? error.level : ''
@@ -167,6 +167,60 @@ function createCapture(limit) {
       return truncated
     },
   }
+}
+
+/**
+ * Open one SSH connection with the same auth handling and friendly error
+ * mapping as {@link createSshClient}'s exec/probe. The caller owns the returned
+ * client and must `client.end()` it (the SFTP client does this in a finally).
+ *
+ * @param {object} record - full record including credentials.
+ * @param {{ timeoutMs?: number, connectTimeoutMs?: number }} [options] - timeout overrides.
+ * @returns {Promise<object>} the ready ssh2 Client.
+ */
+export async function openSshConnection(record, options = {}) {
+  const fields = normalizeRecord(record)
+  const timeoutMs = clampNumber(options.timeoutMs, DEFAULT_CONNECT_TIMEOUT_MS, MIN_TIMEOUT_MS, MAX_TIMEOUT_MS)
+  const connectTimeoutMs = clampNumber(options.connectTimeoutMs, Math.min(DEFAULT_CONNECT_TIMEOUT_MS, timeoutMs), MIN_TIMEOUT_MS, MAX_TIMEOUT_MS)
+  const config = connectionConfig(record, fields, connectTimeoutMs)
+  const client = new Client()
+
+  return new Promise((resolve, reject) => {
+    let settled = false
+    const timer = setTimeout(() => {
+      if (settled) return
+      settled = true
+      try {
+        client.end()
+      } catch {
+        /* already closed */
+      }
+      reject(sshError('timeout', 'SSH 连接超时，请检查服务器地址和网络'))
+    }, timeoutMs)
+    const finish = (error) => {
+      if (settled) return
+      settled = true
+      clearTimeout(timer)
+      if (error === undefined) {
+        resolve(client)
+        return
+      }
+      try {
+        client.end()
+      } catch {
+        /* already closed */
+      }
+      reject(mapSshError(error))
+    }
+    client.once('ready', () => finish())
+    client.once('error', (error) => finish(error))
+    client.once('close', () => finish(new Error('连接已关闭')))
+    try {
+      client.connect(config)
+    } catch (error) {
+      finish(error)
+    }
+  })
 }
 
 /**

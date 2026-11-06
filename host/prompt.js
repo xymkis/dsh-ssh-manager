@@ -42,7 +42,9 @@ function buildText(store) {
   const lines = [
     '## SSH servers',
     '',
-    'The user has configured these Linux SSH servers. Use the `ssh_servers` tool to list them or test connectivity, and `ssh_exec` to run a shell command on one of them. Credentials are never shown; identify a server by its name.',
+    'The user has configured these Linux SSH servers. Use the `ssh_servers` tool to list them or test connectivity, and `ssh_exec` to run a shell command on one of them. Credentials are never shown; identify a server by its name or host/IP.',
+    '',
+    'Chat messages may reference a server as `/<host>` (for example `/192.168.10.81`). Match that host to the list below and pass it (or the server name) as the `server` argument of `ssh_exec`.',
     '',
   ]
   for (const server of servers) {
@@ -51,7 +53,7 @@ function buildText(store) {
     const host = singleLine(server && server.host)
     const port = typeof (server && server.port) === 'number' ? server.port : 22
     const auth = server && server.authType === 'key' ? 'private key auth' : 'password auth'
-    lines.push(`- ${name} — ${username}@${host}:${port} (${auth})`)
+    lines.push(`- ${name} — ${username}@${host}:${port} (${auth}) — reference: /${host}`)
   }
   return lines.join('\n')
 }

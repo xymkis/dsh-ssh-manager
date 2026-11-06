@@ -450,9 +450,11 @@ export function createStore(options = {}) {
   }
 
   /**
-   * Resolve a server by id, then exact name (case-insensitive), then a unique
-   * name prefix (case-insensitive).
-   * @param {string} query - id or name text.
+   * Resolve a server by id, then exact name (case-insensitive), then the exact
+   * host/IP (case-insensitive), then a unique name prefix (case-insensitive).
+   * The host match makes a chat reference like `/192.168.10.81` or a raw IP
+   * resolvable by the agent without knowing the configured display name.
+   * @param {string} query - id, name, host/IP, or a name prefix.
    * @returns {object | undefined} public view.
    */
   function find(query) {
@@ -465,6 +467,8 @@ export function createStore(options = {}) {
     const lower = text.toLowerCase()
     const byName = records.find((record) => typeof record.name === 'string' && record.name.toLowerCase() === lower)
     if (byName) return toView(byName)
+    const byHost = records.find((record) => typeof record.host === 'string' && record.host.toLowerCase() === lower)
+    if (byHost) return toView(byHost)
     const byPrefix = records.filter((record) => typeof record.name === 'string' && record.name.toLowerCase().startsWith(lower))
     if (byPrefix.length === 1) return toView(byPrefix[0])
     return undefined

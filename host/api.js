@@ -12,8 +12,12 @@
 
 /** Route prefix owned by this plugin. */
 const API_PREFIX = '/ssh-manager/api'
-/** Maximum accepted JSON body size (1 MiB). */
+/** Maximum accepted JSON body size for ordinary calls (1 MiB). */
 const MAX_BODY_BYTES = 1024 * 1024
+/** Maximum accepted JSON body size for one file upload (base64 overhead included). */
+const UPLOAD_BODY_BYTES = 48 * 1024 * 1024
+/** Methods that accept a larger request body than {@link MAX_BODY_BYTES}. */
+const BODY_LIMITS = { 'sftp-upload': UPLOAD_BODY_BYTES }
 /** Message shown for unexpected internal failures. */
 const INTERNAL_MESSAGE = '服务器内部错误'
 
@@ -112,6 +116,10 @@ function writeError(ctx, res, error) {
   if (code === 'bad-request') return writeFail(res, 400, code, message || '请求格式无效')
   if (code === 'conflict') return writeFail(res, 409, code, message || '请求存在冲突')
   if (code === 'not-found') return writeFail(res, 404, code, message || '资源不存在')
+  if (code === 'permission') return writeFail(res, 403, code, message || '权限不足')
+  if (code === 'file-too-large') return writeFail(res, 413, code, message || '文件过大')
+  if (code === 'timeout') return writeFail(res, 504, code, message || '操作超时')
+  if (code === 'network' || code === 'auth') return writeFail(res, 502, code, message || 'SSH 连接失败')
   try {
     ctx?.logger?.warn?.(`dsh-ssh-manager: API request failed${message ? `: ${message}` : ''}`)
   } catch {
@@ -123,15 +131,16 @@ function writeError(ctx, res, error) {
 /**
  * Read and parse the bounded JSON request body.
  * @param {object} req - IncomingMessage-like async iterable.
+ * @param {number} [maxBytes] - size cap for this request.
  * @returns {Promise<object>} parsed body (`{}` for an empty body).
  */
-async function readJsonBody(req) {
+async function readJsonBody(req, maxBytes = MAX_BODY_BYTES) {
   const chunks = []
   let total = 0
   for await (const chunk of req) {
     const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)
     total += buffer.length
-    if (total > MAX_BODY_BYTES) throw apiError('bad-request', '请求体超过 1 MiB 限制')
+    if (total > maxBytes) throw apiError('bad-request', `请求体超过 ${Math.round(maxBytes / (1024 * 1024))} MiB 限制`)
     chunks.push(buffer)
   }
   const text = Buffer.concat(chunks).toString('utf8')
@@ -144,6 +153,17 @@ async function readJsonBody(req) {
   }
   if (!isObject(parsed)) throw apiError('bad-request', '请求体必须是 JSON 对象')
   return parsed
+}
+
+/**
+ * Require a non-empty string field.
+ * @param {unknown} value - raw field value.
+ * @param {string} label - friendly label used in the error message.
+ * @returns {string} trimmed value.
+ */
+function requireString(value, label) {
+  if (typeof value !== 'string' || value.trim() === '') throw apiError('invalid-input', `${label}不能为空`)
+  return value.trim()
 }
 
 /**
@@ -181,12 +201,13 @@ async function runConnectionTest(ssh, record) {
 }
 
 /**
- * Build the method table over the store and ssh client.
+ * Build the method table over the store and ssh clients.
  * @param {object} store - server store.
- * @param {object} ssh - ssh client.
+ * @param {object} ssh - ssh client (`exec`/`probe`).
+ * @param {object} sftp - SFTP transfer client (`upload`/`download`).
  * @returns {Record<string, (body: object) => Promise<object>>} method handlers.
  */
-function createMethods(store, ssh) {
+function createMethods(store, ssh, sftp) {
   return {
     /** @returns {Promise<{ servers: object[] }>} configured servers. */
     async list() {
@@ -224,20 +245,39 @@ function createMethods(store, ssh) {
       const record = await store.testDraft(body)
       return runConnectionTest(ssh, record)
     },
+    /** @param {object} body - `{ id, remotePath, fileName?, data }` (base64). @returns {Promise<{ remotePath: string, bytes: number }>} upload outcome. */
+    async 'sftp-upload'(body) {
+      const id = requireId(body)
+      const record = store.getSecretRecord(id)
+      if (!record) throw apiError('not-found', '服务器不存在')
+      const remotePath = requireString(body.remotePath, '远程路径')
+      if (typeof body.data !== 'string') throw apiError('invalid-input', '缺少文件内容')
+      const data = Buffer.from(body.data, 'base64')
+      const fileName = typeof body.fileName === 'string' && body.fileName !== '' ? body.fileName : undefined
+      return sftp.upload(record, remotePath, data, { fileName })
+    },
+    /** @param {object} body - `{ id, remotePath }`. @returns {Promise<object>} base64 download payload. */
+    async 'sftp-download'(body) {
+      const id = requireId(body)
+      const record = store.getSecretRecord(id)
+      if (!record) throw apiError('not-found', '服务器不存在')
+      const remotePath = requireString(body.remotePath, '远程文件路径')
+      return sftp.download(record, remotePath)
+    },
   }
 }
 
 /**
  * Register the `/ssh-manager/api` prefix route.
  * @param {object} ctx - host plugin context (`webServer`, `connection`).
- * @param {{ store: object, ssh: object }} services - store and ssh client.
+ * @param {{ store: object, ssh: object, sftp: object }} services - store, ssh client, sftp client.
  * @returns {() => void} route disposer.
  */
-export function registerApiRoutes(ctx, { store, ssh }) {
+export function registerApiRoutes(ctx, { store, ssh, sftp }) {
   if (!ctx || !ctx.webServer || typeof ctx.webServer.register !== 'function') {
     throw new Error('dsh-ssh-manager: webServer service is unavailable')
   }
-  const methods = createMethods(store, ssh)
+  const methods = createMethods(store, ssh, sftp)
 
   /**
    * Request handler for the prefix route.
@@ -290,7 +330,8 @@ export function registerApiRoutes(ctx, { store, ssh }) {
       }
       let body
       try {
-        body = await readJsonBody(req)
+        const bodyLimit = Object.hasOwn(BODY_LIMITS, method) ? BODY_LIMITS[method] : MAX_BODY_BYTES
+        body = await readJsonBody(req, bodyLimit)
       } catch (error) {
         if (!closed) writeError(ctx, res, error)
         return
