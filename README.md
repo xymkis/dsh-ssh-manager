@@ -71,24 +71,24 @@ SSH 连接信息（支持多台、新增、编辑、删除、测试连通性）�
 
 ## 安装 / 卸载
 
-本插件通过 DSH 插件管理器以本地 bundle 方式安装（安装后对当前 profile 的所有会话生效）：
+仓库：<https://github.com/xymkis/dsh-ssh-manager>
 
-```text
-plugin_manager install_bundle  target = D:\pyproject\运维工具\opschain\plugins\dsh-ssh-manager
+```powershell
+git clone https://github.com/xymkis/dsh-ssh-manager.git D:\dsh-plugins\dsh-ssh-manager
+cd D:\dsh-plugins\dsh-ssh-manager
+npm install --omit=dev --ignore-scripts   # 安装 ssh2 运行期依赖（node_modules 不随仓库提交）
 ```
 
-安装器会把它写成当前 profile 的 `link:` 依赖（`@local/dsh-ssh-manager → link:D:/.../plugins/dsh-ssh-manager`），
-所以：
+然后用 DSH 插件管理器以**该目录的绝对路径**安装为本地 bundle（安装后对当前 profile 的所有会话生效）：
 
-- **不要移动或删除本目录**，否则插件在下次启动时加载失败；移动后重新执行一次安装即可。
-- 运行期依赖 `ssh2` 已安装在本目录的 `node_modules/`（`node_modules` 不随 git 提交）。若重新克隆或换目录，
-  先在本目录执行一次：
+```text
+plugin_manager install_bundle  target = <克隆目录的绝对路径>
+```
 
-  ```powershell
-  npm install --omit=dev --ignore-scripts
-  ```
+安装器会把它写成当前 profile 的 `link:` 依赖（`@local/dsh-ssh-manager → link:<克隆目录>`），所以：
 
-  （`--ignore-scripts` 会跳过可选的 `cpu-features` 原生构建，`ssh2` 仍可用纯 JS 实现。）
+- 安装后**不要移动或删除该目录**，否则下次启动会加载失败；移动后重新执行一次安装即可。
+- `npm install --ignore-scripts` 会跳过可选的 `cpu-features` 原生构建，`ssh2` 仍可用纯 JS 实现。
 
 卸载时在插件管理器中移除 bundle，或在 profile 的 `cordis.patch.yml` 中禁用 `ssh-manager` 行。
 
@@ -109,7 +109,7 @@ plugin_manager install_bundle  target = D:\pyproject\运维工具\opschain\plugi
 ## 目录结构
 
 ```
-plugins/dsh-ssh-manager/
+dsh-ssh-manager/          # 克隆后的仓库根目录
 ├── index.js            # 主机侧入口（apply / inject）
 ├── client.js           # 浏览器侧设置页（单文件、无构建）
 ├── host/
