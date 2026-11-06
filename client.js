@@ -341,51 +341,87 @@ window.__ModuleLoader__.load({
 }
 .dsh-ssh-backdrop {
   position: fixed; inset: 0; z-index: 9999; display: flex; align-items: center; justify-content: center;
-  padding: 24px; box-sizing: border-box; background: var(--dsw-alias-bg-overlay, rgba(15, 15, 15, 0.45));
+  padding: 24px; box-sizing: border-box;
+  background: rgba(0, 0, 0, 0.38); backdrop-filter: blur(2px);
 }
 .dsh-ssh-dialog {
-  display: flex; flex-direction: column; width: min(560px, 100%); max-height: min(86vh, 780px);
-  border: 1px solid var(--ssh-b2); border-radius: 16px; background: var(--ssh-bg3);
+  display: flex; flex-direction: column;
+  width: min(560px, 100%); max-height: min(74vh, 640px);
+  border: 1px solid var(--ssh-b2); border-radius: 14px; background: var(--ssh-bg3);
   box-sizing: border-box; overscroll-behavior: contain;
+  box-shadow: var(--dsw-elevation-prominent, 0 18px 48px rgba(0, 0, 0, 0.28));
+  animation: dsh-ssh-dialog-in 0.14s ease-out;
+}
+@keyframes dsh-ssh-dialog-in {
+  from { opacity: 0; transform: translateY(6px) scale(0.99); }
+  to { opacity: 1; transform: none; }
 }
 .dsh-ssh-dialog-head {
-  display: flex; align-items: center; justify-content: space-between; gap: 16px;
-  padding: 18px 20px 12px; border-bottom: 1px solid var(--ssh-b1);
+  display: flex; align-items: flex-start; justify-content: space-between; gap: 12px;
+  padding: 16px 18px 10px;
 }
+.dsh-ssh-dialog-head-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .dsh-ssh-dialog-title { margin: 0; font-size: 14px; line-height: 22px; font-weight: 600; color: var(--ssh-fg); }
+.dsh-ssh-dialog-sub {
+  font-size: 11px; line-height: 16px; color: var(--ssh-fg3);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
 .dsh-ssh-dialog-body {
-  display: flex; flex: 1 1 auto; flex-direction: column; gap: 14px; padding: 16px 20px;
+  display: flex; flex: 1 1 auto; flex-direction: column; gap: 12px; padding: 4px 18px 14px;
   overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin;
+  scrollbar-color: var(--dsw-alias-scrollbar-bg-l2, transparent) transparent;
 }
 .dsh-ssh-dialog-foot {
   display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap;
-  padding: 14px 20px 18px; border-top: 1px solid var(--ssh-b1);
+  padding: 12px 18px; border-top: 1px solid var(--ssh-b1); background: var(--ssh-bg2);
+  border-radius: 0 0 13px 13px;
 }
 .dsh-ssh-dialog-foot-right { display: flex; align-items: center; justify-content: flex-end; gap: 8px; margin-left: auto; flex-wrap: wrap; }
-.dsh-ssh-field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
-.dsh-ssh-fieldset { margin: 0; padding: 0; border: 0; min-width: 0; }
+.dsh-ssh-field { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+.dsh-ssh-field-row { display: grid; grid-template-columns: minmax(0, 1fr) 118px; gap: 12px; }
 .dsh-ssh-legend { padding: 0; }
-.dsh-ssh-label { font-size: 12px; line-height: 18px; font-weight: 500; color: var(--ssh-fg); }
+.dsh-ssh-label { font-size: 12px; line-height: 17px; font-weight: 500; color: var(--ssh-fg); }
 .dsh-ssh-hint { font-size: 11px; line-height: 16px; color: var(--ssh-fg3); }
 .dsh-ssh-field-error { font-size: 11px; line-height: 16px; color: var(--ssh-err); }
 .dsh-ssh-input {
   width: 100%; box-sizing: border-box; padding: 6px 10px; border: 1px solid var(--ssh-b2);
   border-radius: 8px; background: var(--ssh-bg1); color: var(--ssh-fg); font: inherit; font-size: 13px; line-height: 20px;
+  transition: border-color 0.12s ease, box-shadow 0.12s ease;
 }
 .dsh-ssh-input::placeholder { color: var(--ssh-fg3); }
-.dsh-ssh-input:focus-visible { outline: 2px solid var(--ssh-brand); outline-offset: -1px; }
-.dsh-ssh-input-error { border-color: var(--ssh-err); }
-.dsh-ssh-input-port { width: 120px; }
-.dsh-ssh-textarea { min-height: 96px; padding: 8px 10px; font-family: var(--ssh-mono); font-size: 12px; line-height: 1.6; resize: vertical; }
-.dsh-ssh-radio-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.dsh-ssh-radio {
-  display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px; border: 1px solid var(--ssh-b2);
-  border-radius: 999px; background: var(--ssh-bg1); color: var(--ssh-fg2);
-  font-size: 12px; line-height: 18px; cursor: pointer;
+.dsh-ssh-input:hover:not(:focus-visible) { border-color: var(--dsw-alias-border-l3, var(--ssh-b2)); }
+.dsh-ssh-input:focus-visible {
+  outline: none; border-color: var(--ssh-brand);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--ssh-brand) 16%, transparent);
 }
-.dsh-ssh-radio-on { border-color: var(--ssh-brand); background: var(--ssh-bg2); color: var(--ssh-fg); }
-.dsh-ssh-radio input { margin: 0; accent-color: var(--ssh-brand); }
-.dsh-ssh-radio:focus-within { outline: 2px solid var(--ssh-brand); outline-offset: 1px; }
+.dsh-ssh-input-error { border-color: var(--ssh-err); }
+.dsh-ssh-input-error:focus-visible {
+  border-color: var(--ssh-err);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--ssh-err) 16%, transparent);
+}
+.dsh-ssh-textarea {
+  min-height: 96px; padding: 8px 10px; font-family: var(--ssh-mono); font-size: 12px; line-height: 1.6; resize: vertical;
+}
+.dsh-ssh-textarea-note {
+  min-height: 56px; font-family: inherit; font-size: 13px; line-height: 20px;
+}
+.dsh-ssh-segment-row {
+  display: inline-flex; align-self: flex-start; gap: 2px; padding: 2px;
+  border: 1px solid var(--ssh-b2); border-radius: 8px; background: var(--ssh-bg1);
+}
+.dsh-ssh-segment {
+  appearance: none; border: 0; border-radius: 6px; padding: 4px 14px;
+  background: transparent; color: var(--ssh-fg2); font: inherit; font-size: 12px; line-height: 18px; cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+.dsh-ssh-segment:hover { color: var(--ssh-fg); }
+.dsh-ssh-segment-on {
+  background: var(--ssh-bg2); color: var(--ssh-fg); font-weight: 500;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+.dsh-ssh-segment:focus-visible { outline: 2px solid var(--ssh-brand); outline-offset: 1px; }
+.dsh-ssh-icon-btn { width: 26px; height: 26px; border-radius: 6px; font-size: 15px; color: var(--ssh-fg3); }
+.dsh-ssh-icon-btn:hover:not(:disabled) { color: var(--ssh-fg); }
 .dsh-ssh-form-alert {
   padding: 10px 12px; border: 1px solid var(--ssh-b1); border-radius: 8px; background: var(--ssh-bg2);
   color: var(--ssh-err); font-size: 12px; line-height: 18px; overflow-wrap: anywhere;
@@ -393,13 +429,18 @@ window.__ModuleLoader__.load({
 @media (max-width: 640px) {
   .dsh-ssh-card { flex-direction: column; } .dsh-ssh-card-actions { justify-content: flex-start; width: 100%; }
   .dsh-ssh-confirm { align-items: flex-start; } .dsh-ssh-confirm-desc { max-width: none; text-align: left; }
-  .dsh-ssh-backdrop { padding: 12px; align-items: flex-end; } .dsh-ssh-dialog { max-height: 92vh; }
+  .dsh-ssh-backdrop { padding: 12px; }
+  .dsh-ssh-dialog { max-height: min(86vh, 720px); }
   .dsh-ssh-dialog-head, .dsh-ssh-dialog-body, .dsh-ssh-dialog-foot { padding-left: 16px; padding-right: 16px; }
 }
-@media (max-width: 420px) {
-  .dsh-ssh-input-port { width: 100%; } .dsh-ssh-dialog-foot-right { width: 100%; justify-content: flex-end; }
+@media (max-width: 520px) {
+  .dsh-ssh-field-row { grid-template-columns: 1fr; }
+  .dsh-ssh-dialog-foot-right { width: 100%; justify-content: flex-end; }
 }
-@media (prefers-reduced-motion: reduce) { .dsh-ssh-btn { transition: none; } }
+@media (prefers-reduced-motion: reduce) {
+  .dsh-ssh-btn, .dsh-ssh-segment, .dsh-ssh-input { transition: none; }
+  .dsh-ssh-dialog { animation: none; }
+}
 `
 
     /** Install the stylesheet once; returns a disposer. */
@@ -749,7 +790,9 @@ window.__ModuleLoader__.load({
         const invalid = opts.invalid === true
         return h('textarea', {
           id, value, spellCheck: false,
-          className: 'dsh-ssh-input dsh-ssh-textarea' + (invalid ? ' dsh-ssh-input-error' : ''),
+          className: 'dsh-ssh-input dsh-ssh-textarea'
+            + (opts.className === undefined ? '' : ' ' + opts.className)
+            + (invalid ? ' dsh-ssh-input-error' : ''),
           rows: opts.rows === undefined ? 4 : opts.rows,
           maxLength: opts.maxLength, placeholder: opts.placeholder,
           'aria-invalid': invalid ? true : undefined,
@@ -757,37 +800,37 @@ window.__ModuleLoader__.load({
         })
       }
 
-      const authOption = (value, label) => h('label', {
+      const authOption = (value, label) => h('button', {
         key: 'auth-' + value,
-        className: 'dsh-ssh-radio' + (draft.authType === value ? ' dsh-ssh-radio-on' : ''),
-      },
-        h('input', {
-          type: 'radio', name: 'dsh-ssh-auth-type', value,
-          checked: draft.authType === value,
-          onChange: () => { patch('authType', value) },
-        }),
-        h('span', null, label),
-      )
+        type: 'button',
+        role: 'radio',
+        'aria-checked': draft.authType === value,
+        className: 'dsh-ssh-segment' + (draft.authType === value ? ' dsh-ssh-segment-on' : ''),
+        onClick: () => { patch('authType', value) },
+      }, label)
 
       const fields = [
         h(Field, { key: 'name', id: 'dsh-ssh-field-name', label: t('fieldName'), hint: t('fieldNameHint') },
           textInput('dsh-ssh-field-name', draft.name, v => { patch('name', v) }, { inputRef: firstFieldRef })),
-        h(Field, { key: 'host', id: 'dsh-ssh-field-host', label: t('fieldHost'), error: errors.host },
-          textInput('dsh-ssh-field-host', draft.host, v => { patch('host', v) }, {
-            invalid: errors.host !== undefined, placeholder: '192.168.1.10',
-          })),
-        h(Field, { key: 'port', id: 'dsh-ssh-field-port', label: t('fieldPort'), error: errors.port },
-          textInput('dsh-ssh-field-port', draft.port, v => { patch('port', v) }, {
-            invalid: errors.port !== undefined, className: 'dsh-ssh-input-port',
-            type: 'number', inputMode: 'numeric', min: 1, max: 65535,
-          })),
+        h('div', { key: 'host-port', className: 'dsh-ssh-field-row' },
+          h(Field, { id: 'dsh-ssh-field-host', label: t('fieldHost'), error: errors.host },
+            textInput('dsh-ssh-field-host', draft.host, v => { patch('host', v) }, {
+              invalid: errors.host !== undefined, placeholder: '192.168.1.10',
+            })),
+          h(Field, { id: 'dsh-ssh-field-port', label: t('fieldPort'), error: errors.port },
+            textInput('dsh-ssh-field-port', draft.port, v => { patch('port', v) }, {
+              invalid: errors.port !== undefined,
+              type: 'number', inputMode: 'numeric', min: 1, max: 65535,
+            }))),
         h(Field, { key: 'username', id: 'dsh-ssh-field-username', label: t('fieldUsername'), error: errors.username },
           textInput('dsh-ssh-field-username', draft.username, v => { patch('username', v) }, {
             invalid: errors.username !== undefined, placeholder: 'root',
           })),
-        h('fieldset', { key: 'auth', className: 'dsh-ssh-field dsh-ssh-fieldset' },
-          h('legend', { className: 'dsh-ssh-label dsh-ssh-legend' }, t('fieldAuthType')),
-          h('div', { className: 'dsh-ssh-radio-row' },
+        h('div', { key: 'auth', className: 'dsh-ssh-field' },
+          h('span', { className: 'dsh-ssh-label', id: 'dsh-ssh-auth-label' }, t('fieldAuthType')),
+          h('div', {
+            className: 'dsh-ssh-segment-row', role: 'radiogroup', 'aria-labelledby': 'dsh-ssh-auth-label',
+          },
             authOption('password', t('authPassword')), authOption('key', t('authKey')))),
       ]
 
@@ -815,19 +858,26 @@ window.__ModuleLoader__.load({
       }
 
       fields.push(h(Field, { key: 'note', id: 'dsh-ssh-field-note', label: t('fieldNote') },
-        textArea('dsh-ssh-field-note', draft.note, v => { patch('note', v) }, { rows: 2, maxLength: 500 })))
+        textArea('dsh-ssh-field-note', draft.note, v => { patch('note', v) }, {
+          rows: 2, maxLength: 500, className: 'dsh-ssh-textarea-note',
+        })))
 
-      return h('div', {
-        className: 'dsh-ssh-backdrop',
-        onClick: event => { if (event.target === event.currentTarget) requestClose() },
-      },
+      // Deliberately no backdrop-click close: a partly filled connection form
+      // must not be discarded by a stray outside click. Close via the × button,
+      // the 取消 button, or Escape.
+      return h('div', { className: 'dsh-ssh-backdrop' },
         h('div', {
           className: 'dsh-ssh-dialog', role: 'dialog', 'aria-modal': 'true',
           'aria-labelledby': titleId, ref: panelRef,
         },
           h('div', { className: 'dsh-ssh-dialog-head' },
-            h('h2', { className: 'dsh-ssh-dialog-title', id: titleId },
-              isEdit ? t('formEditTitle') : t('formAddTitle')),
+            h('div', { className: 'dsh-ssh-dialog-head-text' },
+              h('h2', { className: 'dsh-ssh-dialog-title', id: titleId },
+                isEdit ? t('formEditTitle') : t('formAddTitle')),
+              isEdit
+                ? h('span', { className: 'dsh-ssh-dialog-sub' },
+                  String(server.username) + '@' + String(server.host) + ':' + String(server.port))
+                : null),
             Btn({
               tone: 'ghost', className: 'dsh-ssh-icon-btn', onClick: requestClose,
               disabled: saving, 'aria-label': t('close'), title: t('close'),

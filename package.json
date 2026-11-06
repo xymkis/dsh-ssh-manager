@@ -4,6 +4,19 @@
   "description": "Manage Linux SSH server connections in DeepSeek Harness and let the agent run remote commands over SSH.",
   "private": true,
   "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/xymkis/dsh-ssh-manager.git"
+  },
+  "homepage": "https://github.com/xymkis/dsh-ssh-manager#readme",
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "deepseek-harness",
+    "ssh",
+    "linux",
+    "remote"
+  ],
   "main": "./index.js",
   "exports": {
     ".": "./index.js",

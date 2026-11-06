@@ -71,7 +71,25 @@ SSH 连接信息（支持多台、新增、编辑、删除、测试连通性）�
 
 ## 安装 / 卸载
 
-仓库：<https://github.com/xymkis/dsh-ssh-manager>
+**推荐：一键安装（无需克隆源码、无需手动安装依赖）**
+
+在 DSH 中打开 **插件** 页面 → **安装插件**，在安装输入框中填写下面任一 spec：
+
+```text
+github:xymkis/dsh-ssh-manager
+https://github.com/xymkis/dsh-ssh-manager
+```
+
+插件管理器会拉取仓库并**自动安装 `ssh2` 依赖**（`ssh2` 为纯 JavaScript 实现，无需编译；可选的
+`cpu-features` 原生构建会被跳过，不影响使用）。安装完成后 bundle 自动挂载，无需手改任何配置文件。
+
+若使用 DSH CLI：
+
+```powershell
+dsh plugin add github:xymkis/dsh-ssh-manager
+```
+
+**本地开发安装（link 模式，改代码即时生效）**
 
 ```powershell
 git clone https://github.com/xymkis/dsh-ssh-manager.git D:\dsh-plugins\dsh-ssh-manager
@@ -79,7 +97,7 @@ cd D:\dsh-plugins\dsh-ssh-manager
 npm install --omit=dev --ignore-scripts   # 安装 ssh2 运行期依赖（node_modules 不随仓库提交）
 ```
 
-然后用 DSH 插件管理器以**该目录的绝对路径**安装为本地 bundle（安装后对当前 profile 的所有会话生效）：
+然后用 DSH 插件管理器以**该目录的绝对路径**安装为本地 bundle：
 
 ```text
 plugin_manager install_bundle  target = <克隆目录的绝对路径>
@@ -90,7 +108,7 @@ plugin_manager install_bundle  target = <克隆目录的绝对路径>
 - 安装后**不要移动或删除该目录**，否则下次启动会加载失败；移动后重新执行一次安装即可。
 - `npm install --ignore-scripts` 会跳过可选的 `cpu-features` 原生构建，`ssh2` 仍可用纯 JS 实现。
 
-卸载时在插件管理器中移除 bundle，或在 profile 的 `cordis.patch.yml` 中禁用 `ssh-manager` 行。
+卸载：在插件管理器中移除该 bundle（或在 profile 的 `cordis.patch.yml` 中禁用 `ssh-manager` 行）。
 
 ## 开发 / 验证
 
